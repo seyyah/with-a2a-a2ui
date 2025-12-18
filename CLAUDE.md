@@ -9,6 +9,7 @@ This is a full-stack AI agent application combining **CopilotKit**, **A2A (Agent
 **Stack:**
 - Frontend: Next.js 16 with React 19, Tailwind CSS 4
 - Backend Agent: Python 3.13+ with Google ADK (Agent Development Kit)
+- LLM Provider: OpenAI o1-mini (reasoning model with tool support)
 - Agent Framework: A2A SDK for agent communication
 - UI Protocol: A2UI for declarative UI generation
 - Package Manager: Any (pnpm/npm/yarn/bun) for Node.js, `uv` for Python
@@ -80,7 +81,7 @@ The application runs two concurrent servers:
 
 ```
 User → Next.js UI → CopilotKit Runtime → A2A Client (localhost:10002)
-  → A2A Server → RestaurantAgentExecutor → RestaurantAgent (Google ADK + Gemini)
+  → A2A Server → RestaurantAgentExecutor → RestaurantAgent (Google ADK + OpenAI o1-mini)
     → LLM generates A2UI JSON → Validated against schema → Rendered in UI
 ```
 
@@ -94,7 +95,7 @@ User → Next.js UI → CopilotKit Runtime → A2A Client (localhost:10002)
 **Agent (`agent/`):**
 - `__main__.py`: A2A server setup with CORS, static file serving, agent card definition
 - `agent_executor.py`: RestaurantAgentExecutor - handles UI/text mode switching, processes user actions (book_restaurant, submit_booking)
-- `agent.py`: RestaurantAgent - wraps Google ADK LlmAgent, validates A2UI JSON responses, implements retry logic
+- `agent.py`: RestaurantAgent - wraps Google ADK LlmAgent with OpenAI o1-mini, validates A2UI JSON responses, implements retry logic
 - `prompt_builder.py`: Contains A2UI_SCHEMA and RESTAURANT_UI_EXAMPLES (single column list, two column list, booking form, confirmation)
 - `tools.py`: get_restaurants tool that loads from restaurant_data.json
 - `restaurant_data.json`: Mock restaurant data
@@ -124,14 +125,28 @@ Agent responses split into two parts with `---a2ui_JSON---` delimiter:
 
 Create `agent/.env`:
 ```
-GEMINI_API_KEY=your-api-key-here
+# OpenAI API Key (for o1-mini model)
+# Get your API key from: https://platform.openai.com/api-keys
+OPENAI_API_KEY=your-openai-api-key-here
+
+# Model selection (default: o1-mini)
+# Available OpenAI models with tool support:
+# - o1-mini (reasoning model, recommended for complex tasks)
+# - gpt-4o (multimodal, fast)
+# - gpt-4o-mini (cheaper, faster)
+# - gpt-4-turbo (legacy)
+#
+# Other supported models:
+# - gemini/gemini-2.0-flash-exp (Google, free tier available)
+# - perplexity/llama-3.1-sonar-large-128k-online (NO tool support)
+LITELLM_MODEL=o1-mini
+
+# Retry and timeout configuration
+LITELLM_NUM_RETRIES=3
+LITELLM_TIMEOUT=60
 ```
 
-Optional:
-```
-GOOGLE_GENAI_USE_VERTEXAI=TRUE  # Use Vertex AI instead of API key
-LITELLM_MODEL=gemini/gemini-2.5-flash  # Override default model
-```
+> **Note:** Get your OpenAI API key from [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
 
 ## File Locations
 
@@ -178,7 +193,8 @@ Edit `app/theme.ts` to customize:
 
 **Agent connection errors:**
 - Verify agent server is running on port 10002
-- Check GEMINI_API_KEY is set in `agent/.env`
+- Check OPENAI_API_KEY is set in `agent/.env`
+- Verify LITELLM_MODEL is set to a valid model (default: o1-mini)
 - Ensure both servers started successfully
 
 **Python import errors:**
